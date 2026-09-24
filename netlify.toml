@@ -1,0 +1,10 @@
+# site/ se genera con `npm run build` y se sube al repo: Netlify no compila nada.
+[build]
+  publish = "site"
+  command = ""
+
+# Los assets llevan un hash del contenido en el nombre: se pueden cachear para siempre.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
