@@ -64,6 +64,17 @@ abierta en el navegador debe mostrar `{"ok":true,…}`. Ponerla en `ENDPOINT`, c
 `npx @google/clasp@3.4.1 push && npx @google/clasp@3.4.1 create-deployment --deploymentId <ID>`
 (mismo ID = misma URL).
 
+**La URL `/exec` está en el repositorio, a propósito.** Vive en `ENDPOINT` (`public/forms.js`,
+línea 11). No es un secreto: cada visitante la descarga con `forms.js` y aparece en la pestaña de
+red del navegador al enviar. Moverla a una variable de entorno de Netlify no la ocultaría, y
+exigiría compilar el sitio en Netlify (hoy se compila en local y Netlify solo publica `site/`).
+Lo que la protege es lo que permite: solo agregar filas, y no devuelve datos.
+
+**Si alguien abusa de la URL** (filas basura): crear una implementación nueva
+(`npx @google/clasp@3.4.1 create-deployment`), poner la URL nueva en `ENDPOINT`, compilar y subir, y
+borrar la anterior (`npx @google/clasp@3.4.1 delete-deployment <ID anterior>`). Si el problema
+crece, el siguiente paso sería Cloudflare Turnstile.
+
 **Seguridad:**
 - `~/.clasprc.json` (sesión de clasp) nunca va al repositorio; `.gitignore` lo excluye, y también
   `*.csv` y `*.xlsx` porque las listas de personas no deben subirse.
