@@ -28,9 +28,19 @@ Para ver el sitio en local: `python3 -m http.server -d site 8080` y abrir http:/
 ## Formularios
 
 Inscripción y consulta se guardan en una hoja de cálculo de Google (pestañas *Inscripciones* y
-*Consultas*) a través de `google-apps-script/Code.gs`. No se envían correos. Cada envío también
-queda como respaldo en Netlify Forms (columna `hoja`: `ok`, `error: …` o `sin configurar`); ese
-respaldo solo funciona si en Netlify se activa *Forms → Enable form detection*.
+*Consultas*) a través de `google-apps-script/Code.gs`. No se envían correos.
+
+- **El éxito solo se muestra si el script responde `{"ok":true}`.** Si falla por algo pasajero
+  (red, 401/403, página de error de Google, script ocupado) `public/forms.js` reintenta hasta 3
+  veces (pausas de 1 s y 2,5 s; peor caso ~40 s). Si el script rechaza los datos (`faltan datos`),
+  no reintenta.
+- **Los reintentos no duplican filas:** cada envío lleva un ID único (`_id`, columna *ID envío*) y
+  el script ignora un ID que ya guardó.
+- **Respaldo en Netlify Forms:** cada envío también se manda allí (sin esperar y sin contar para el
+  éxito), con la columna `hoja` = `ok` o `error: motivo (intentos: n)`. Sirve para no perder el dato
+  y para ver por qué falló. Solo funciona si en Netlify se activa *Forms → Enable form detection*.
+- Si el script cambia de columnas, las pestañas ya creadas conservan su encabezado anterior: agregar
+  a mano la columna que falte, o borrar la pestaña (se vuelve a crear con el primer envío).
 
 Enlace directo al formulario para redes: **https://foromif.org/inscripcion**. Cada sección tiene
 su URL (`/programa`, `/expositores`, `/noticias`, `/contacto`), definidas en `netlify.toml`.

@@ -20,14 +20,14 @@ var HOJAS = {
     nombre: 'Inscripciones',
     campos: ['nombre', 'dni', 'institucion', 'cargo', 'correo', 'telefono'],
     titulos: ['Nombre completo', 'DNI', 'Institución', 'Cargo', 'Correo', 'Teléfono'],
-    extra: ['Origen', 'DNI repetido', 'Página'],
+    extra: ['Origen', 'DNI repetido', 'Página', 'ID envío'],
     requeridos: ['nombre', 'dni']
   },
   consulta: {
     nombre: 'Consultas',
     campos: ['nombre', 'correo', 'motivo', 'mensaje'],
     titulos: ['Nombre', 'Correo', 'Motivo', 'Mensaje'],
-    extra: ['Página'],
+    extra: ['Página', 'ID envío'],
     requeridos: ['nombre', 'mensaje']
   }
 };
@@ -52,15 +52,20 @@ function doPost(e) {
     if (!String(p[hoja.requeridos[i]] || '').trim()) return json({ ok: false, error: 'faltan datos' });
   }
 
+  // Identificador único por envío, el mismo en todos los reintentos del navegador.
+  var id = String(p._id || '').replace(/[^A-Za-z0-9\-]/g, '').slice(0, 64);
+
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return json({ ok: false, error: 'ocupado, reintentar' });
   try {
     var sh = obtenerHoja(hoja);
+    // Reintento de un envío que ya se guardó (se perdió la respuesta): no duplicar.
+    if (yaGuardado(sh, hoja, id)) return json({ ok: true });
     var fila = [new Date()].concat(hoja.campos.map(function (c) { return texto(p[c]); }));
     if (p._form === 'inscripcion') {
-      fila.push('web', dniExiste(sh, p.dni) ? 'sí' : '', texto(p._page));
+      fila.push('web', dniExiste(sh, p.dni) ? 'sí' : '', texto(p._page), id);
     } else {
-      fila.push(texto(p._page));
+      fila.push(texto(p._page), id);
     }
     sh.appendRow(fila);
   } finally {
@@ -80,6 +85,19 @@ function obtenerHoja(hoja) {
     sh.setFrozenRows(1);
   }
   return sh;
+}
+
+// Busca el ID entre las últimas 200 filas (los reintentos ocurren a los pocos segundos).
+function yaGuardado(sh, hoja, id) {
+  var ultima = sh.getLastRow();
+  if (!id || ultima < 2) return false;
+  var col = 1 + hoja.campos.length + hoja.extra.length; // "ID envío" es la última columna
+  var desde = Math.max(2, ultima - 199);
+  var valores = sh.getRange(desde, col, ultima - desde + 1, 1).getValues();
+  for (var i = 0; i < valores.length; i++) {
+    if (String(valores[i][0]) === id) return true;
+  }
+  return false;
 }
 
 function normalizarDni(v) {
