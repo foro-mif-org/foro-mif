@@ -8,3 +8,40 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Cada sección tiene su URL; todas sirven la misma página y el JS abre la sección.
+# foromif.org/inscripcion es el enlace directo al formulario para compartir.
+[[redirects]]
+  from = "/inscripcion"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/inscripciones"
+  to = "/inscripcion"
+  status = 301
+
+[[redirects]]
+  from = "/registro"
+  to = "/inscripcion"
+  status = 301
+
+[[redirects]]
+  from = "/programa"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/expositores"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/noticias"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/contacto"
+  to = "/index.html"
+  status = 200

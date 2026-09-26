@@ -122,20 +122,21 @@ function patchBetween(label, start, end, to) {
   html = html.slice(0, a) + to + html.slice(b);
 }
 
-for (const [uuid, rel] of Object.entries(urlFor)) html = html.split(uuid).join(rel);
+// Rutas absolutas: /inscripcion, /programa, etc. sirven el mismo index.html.
+for (const [uuid, rel] of Object.entries(urlFor)) html = html.split(uuid).join("/" + rel);
 
 // El runtime busca React (y las fotos de noticias) en window.__resources; sin
 // esto lo descarga de unpkg y vuelve a pedir la página para re-parsearla.
-const resources = Object.fromEntries(extResources.map((r) => [r.id, urlFor[r.uuid]]));
+const resources = Object.fromEntries(extResources.map((r) => [r.id, "/" + urlFor[r.uuid]]));
 
 const head = [
   `<title>${TITLE}</title>`,
   `<meta name="description" content="${DESCRIPTION}">`,
   `<link rel="canonical" href="${SITE_URL}">`,
   `<meta name="theme-color" content="#14100D">`,
-  `<link rel="icon" href="favicon.ico" sizes="any">`,
-  `<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">`,
-  `<link rel="apple-touch-icon" href="apple-touch-icon.png">`,
+  `<link rel="icon" href="/favicon.ico" sizes="any">`,
+  `<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">`,
+  `<link rel="apple-touch-icon" href="/apple-touch-icon.png">`,
   `<meta property="og:type" content="website">`,
   `<meta property="og:locale" content="es_PE">`,
   `<meta property="og:url" content="${SITE_URL}">`,
@@ -145,37 +146,37 @@ const head = [
   `<meta property="og:image:width" content="1200">`,
   `<meta property="og:image:height" content="630">`,
   `<meta name="twitter:card" content="summary_large_image">`,
-  `<link rel="preload" as="image" href="${urlFor[HERO_PHOTO]}">`,
+  `<link rel="preload" as="image" href="/${urlFor[HERO_PHOTO]}">`,
   `<script>window.__resources = ${JSON.stringify(resources)};</script>`,
-  `<script src="forms.js"></script>`,
+  `<script src="/forms.js"></script>`,
 ].join("\n");
 
 patch("lang", "<!DOCTYPE html>\n<html><head>", "<!DOCTYPE html>\n<html lang=\"es\"><head>");
 patch("head", '<meta name="viewport" content="width=device-width, initial-scale=1">\n<script src=',
   `<meta name="viewport" content="width=device-width, initial-scale=1">\n${head}\n<script src=`);
 
-// Formulario de inscripción: mismas preguntas que el formulario de Google del
-// comité (forms.js envía cada campo a su pregunta), más el consentimiento.
+// Formulario de inscripción: nombre, DNI, institución, cargo, correo, teléfono y consentimiento.
 const FIELD_STYLE = "padding:12px 14px;border:1px solid #D8CFC2;border-radius:3px;background:#FCFAF7;color:#16120F;font-size:15px";
 const field = (label, name, { required = false, type = "", placeholder = "" } = {}) => `
           <label style="display:flex;flex-direction:column;gap:7px">
             <span style="font-family:Oswald,sans-serif;text-transform:uppercase;font-size:12px;letter-spacing:.08em;color:#3B332B">${label}${required ? " *" : ""}</span>
             <input name="${name}"${type ? ` type="${type}"` : ""}${required ? ' required="required"' : ""} placeholder="${placeholder}" style="${FIELD_STYLE}" style-focus="border-color:#B4342A;outline:none;background:#fff">
           </label>`;
+const TRAMPA = '<div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden"><label>No completar este campo <input name="bot-field" tabindex="-1" autocomplete="off"></label></div>';
 const row = (...fields) => `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:18px">${fields.join("")}
         </div>`;
 patchBetween("campos de inscripción",
   '<form sc-camel-on-submit="{{ submit }}" style="background:#fff;border:1px solid #E3DCD1;padding:clamp(24px,3vw,40px);display:flex;flex-direction:column;gap:20px">',
   '\n        <label style="display:flex;gap:11px;align-items:flex-start',
-  row(field("Nombre completo", "nombre", { required: true, placeholder: "Nombres y apellidos" }),
+  TRAMPA + row(field("Nombre completo", "nombre", { required: true, placeholder: "Nombres y apellidos" }),
       field("Documento de identidad", "dni", { required: true, placeholder: "DNI / CE / Pasaporte" })) +
   row(field("Institución u organización", "institucion", { required: true, placeholder: "Entidad, comunidad, universidad o empresa" }),
       field("Cargo", "cargo", { placeholder: "Opcional" })) +
   row(field("Correo electrónico", "correo", { required: true, type: "email", placeholder: "nombre@institucion.pe" }),
       field("Teléfono / WhatsApp", "telefono", { placeholder: "+51" })));
 
-// El formulario de Google no envía confirmación por correo: no prometerla.
+// El sitio no envía confirmación por correo: no prometerla.
 patch("texto banda", "Inscripción libre y gratuita. Aforo limitado al auditorio: la confirmación se envía por correo electrónico.",
   "Inscripción libre y gratuita. Aforo limitado al auditorio.");
 patch("texto intro registro", "Participación libre y gratuita, con aforo limitado. Al completar el formulario recibirás la confirmación de tu inscripción y, al cierre del evento, tu constancia de asistencia virtual.",
@@ -187,11 +188,15 @@ patch("texto aforo", "Aforo limitado. La inscripción no garantiza cupo hasta re
 
 // Netlify detecta formularios leyendo el HTML al desplegar; los del sitio los
 // crea JavaScript, así que se declaran aquí ocultos con los mismos campos que envía forms.js.
-patch("formularios Netlify", "</body></html>", `<form name="inscripcion" data-netlify="true" hidden>
-<input name="nombre"><input name="dni"><input name="institucion"><input name="cargo"><input name="correo"><input name="telefono"><input name="consent"><input name="google_form"><input name="pagina">
+patch("señuelo consulta",
+  '<form sc-camel-on-submit="{{ submitConsulta }}" style="background:#fff;border:1px solid #E3DCD1;padding:clamp(24px,3vw,36px);display:flex;flex-direction:column;gap:18px">',
+  '<form sc-camel-on-submit="{{ submitConsulta }}" style="background:#fff;border:1px solid #E3DCD1;padding:clamp(24px,3vw,36px);display:flex;flex-direction:column;gap:18px">' + TRAMPA);
+
+patch("formularios Netlify", "</body></html>", `<form name="inscripcion" data-netlify="true" netlify-honeypot="bot-field" hidden>
+<input name="nombre"><input name="dni"><input name="institucion"><input name="cargo"><input name="correo"><input name="telefono"><input name="consent"><input name="hoja"><input name="pagina"><input name="bot-field">
 </form>
-<form name="consulta" data-netlify="true" hidden>
-<input name="nombre"><input name="email"><input name="motivo"><textarea name="mensaje"></textarea>
+<form name="consulta" data-netlify="true" netlify-honeypot="bot-field" hidden>
+<input name="nombre"><input name="email"><input name="motivo"><textarea name="mensaje"></textarea><input name="hoja"><input name="pagina"><input name="bot-field">
 </form>
 </body></html>`);
 
@@ -203,8 +208,32 @@ patch("submit consulta",
   "submitConsulta: (e) => { e.preventDefault(); e.target.reset(); this.setState({ consultaEnviada: true }); }",
   'submitConsulta: (e) => { e.preventDefault(); const f = e.target; window.foroEnviar(f, "consulta").then((ok) => { if (!ok) return; f.reset(); this.setState({ consultaEnviada: true }); }); }');
 
+// Rutas: cada sección tiene su URL (foromif.org/inscripcion abre el formulario
+// directo, para compartir en redes). netlify.toml sirve index.html en cada una.
+patch("rutas", "class Component extends DCLogic {", `const RUTAS = { inicio: "/", programa: "/programa", expositores: "/expositores", noticias: "/noticias", contacto: "/contacto", registro: "/inscripcion" };
+const paginaDesdeUrl = () => {
+  const p = location.pathname.replace(/\\/+$/, "") || "/";
+  const h = location.hash.slice(1);
+  if (h === "inscripcion" || h === "registro") return "registro";
+  if (RUTAS[h]) return h;
+  return Object.keys(RUTAS).find((k) => RUTAS[k] === p) || "inicio";
+};
+
+class Component extends DCLogic {`);
+patch("página inicial", 'state = { page: "inicio",', "state = { page: paginaDesdeUrl(),");
+patch("URL al navegar", "this.setState({ page: page });",
+  'this.setState({ page: page }); if (location.pathname !== RUTAS[page]) history.pushState(null, "", RUTAS[page]);');
+patch("botón atrás", "  componentDidMount() {\n",
+  '  componentDidMount() {\n    this.onPop = () => this.setState({ page: paginaDesdeUrl() });\n    window.addEventListener("popstate", this.onPop);\n');
+patch("botón atrás (limpieza)", "  componentWillUnmount() {\n",
+  '  componentWillUnmount() {\n    window.removeEventListener("popstate", this.onPop);\n');
+patch("enlaces del menú", 'href: "#" + x.id,', "href: RUTAS[x.id],");
+for (const [hash, ruta] of [["inicio", "/"], ["registro", "/inscripcion"], ["programa", "/programa"], ["noticias", "/noticias"], ["contacto", "/contacto"], ["expositores", "/expositores"]]) {
+  html = html.split(`href="#${hash}"`).join(`href="${ruta}"`);
+}
+
 // Carga diferida para todo lo que no está en la primera pantalla.
-const eager = [urlFor[HEADER_LOGO], urlFor[HERO_LOGO], urlFor[HERO_PHOTO]];
+const eager = [HEADER_LOGO, HERO_LOGO, HERO_PHOTO].map((u) => "/" + urlFor[u]);
 html = html.replace(/<img src="([^"]*)"/g, (m, src) => eager.includes(src) ? m : `<img loading="lazy" decoding="async" src="${src}"`);
 
 fs.writeFileSync(path.join(OUT, "index.html"), html);

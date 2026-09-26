@@ -1,1 +1,6 @@
 node_modules/
+
+# Credenciales de clasp y datos de personas: nunca al repositorio
+.clasprc.json
+*.csv
+*.xlsx
