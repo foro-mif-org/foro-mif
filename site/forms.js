@@ -8,7 +8,7 @@
 
 (function () {
   // URL de la aplicación web de Apps Script (termina en /exec). Vacía = solo Netlify.
-  var ENDPOINT = "";
+  var ENDPOINT = "https://script.google.com/macros/s/AKfycbxGwXWC5eloutaY1rGIWri3hLS55ExgsQ9XTLCnks2LI_h68mVbCRJHEwQaX0KeyYBrwA/exec";
 
   var TIMEOUT_MS = 15000;
 
