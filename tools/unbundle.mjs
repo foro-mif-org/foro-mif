@@ -32,6 +32,10 @@ const HERO_PHOTO = "d6d182f0-26a7-4093-9b29-f26abe0777cf";
 const HEADER_LOGO = "b15b7325-6970-4402-b5ea-5f34e8d58270";
 const RUNTIME = "3aa5ddbb-97a3-49d5-9849-2a2420327d00";
 
+// Logos que se quitan del sitio: se elimina su elemento del template y no se publica el archivo.
+const FAP_LOGO = "9d6f4985-f5cd-45da-88f6-c17a21149748"; // Fuerza Aérea del Perú (pie de página, "Organizan")
+const OMITIR = new Set([FAP_LOGO]);
+
 // ── Leer el bundle ──────────────────────────────────────────────────────────
 
 const bundle = fs.readFileSync(SRC, "utf8");
@@ -88,6 +92,7 @@ const urlFor = {};
 const used = new Set();
 const report = [];
 for (const [uuid, entry] of Object.entries(manifest)) {
+  if (OMITIR.has(uuid)) continue;
   const buf = decode(entry);
   let out = buf;
   let ext = { "image/png": "png", "image/jpeg": "jpg", "font/woff2": "woff2", "text/javascript": "js" }[entry.mime];
@@ -123,6 +128,9 @@ function patchBetween(label, start, end, to) {
 }
 
 // Rutas absolutas: /inscripcion, /programa, etc. sirven el mismo index.html.
+// Antes de resolver los uuid: el logo de la FAP ya no debe quedar referenciado.
+patch("logo FAP", `<div style="display:flex;align-items:center"><img src="${FAP_LOGO}" alt="Fuerza Aérea del Perú" style="height:56px;width:auto;display:block"></div>`, "");
+
 for (const [uuid, rel] of Object.entries(urlFor)) html = html.split(uuid).join("/" + rel);
 
 // El runtime busca React (y las fotos de noticias) en window.__resources; sin
