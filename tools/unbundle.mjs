@@ -23,18 +23,16 @@ const PUBLIC = path.join(ROOT, "public");
 const RAW = process.argv.includes("--raw");
 
 const SITE_URL = "https://foromif.org/";
-const TITLE = "Foro de Gobernanza y Co-gestión Territorial para el Manejo Integral del Fuego";
-const DESCRIPTION = "4 y 5 de octubre de 2026 · Lima, Perú. Pueblos indígenas, comunidades, instituciones y aliados reunidos para prevenir, gestionar y responder de manera integral a los incendios forestales. Inscripción libre y gratuita.";
+const TITLE = "I Foro Nacional para el Manejo Integral del Fuego: Gobernanza y Cogestión Territorial";
+const DESCRIPTION = "30 de noviembre y 1 de diciembre de 2026 · Auditorio del MIDAGRI, Lima, Perú. Pueblos indígenas, comunidades, instituciones y aliados reunidos para prevenir, gestionar y responder de manera integral a los incendios forestales. Inscripción libre y gratuita.";
 
-// Assets con un rol conocido dentro del template.
-const HERO_LOGO = "84b5b273-1921-437c-abb7-a3debdc738a4"; // logo blanco sobre la foto principal
-const HERO_PHOTO = "d6d182f0-26a7-4093-9b29-f26abe0777cf";
-const HEADER_LOGO = "b15b7325-6970-4402-b5ea-5f34e8d58270";
-const RUNTIME = "3aa5ddbb-97a3-49d5-9849-2a2420327d00";
+// Assets con un rol conocido dentro del template. Los uuid cambian en cada
+// export, así que se ubican en el template (ver "Ubicar assets" más abajo).
+let HERO_LOGO, HERO_PHOTO, HEADER_LOGO, RUNTIME;
 
 // Logos que se quitan del sitio: se elimina su elemento del template y no se publica el archivo.
-const FAP_LOGO = "9d6f4985-f5cd-45da-88f6-c17a21149748"; // Fuerza Aérea del Perú (pie de página, "Organizan")
-const OMITIR = new Set([FAP_LOGO]);
+// (El logo de la FAP ya no viene en el export desde nov. 2026; la lista queda vacía.)
+const OMITIR = new Set();
 
 // ── Leer el bundle ──────────────────────────────────────────────────────────
 
@@ -47,6 +45,17 @@ function island(type) {
 const manifest = island("manifest");
 const extResources = island("ext_resources");
 let html = island("template");
+
+// ── Ubicar assets ───────────────────────────────────────────────────────────
+function pick(re, label) {
+  const m = html.match(re);
+  if (!m) throw new Error(`no se encontró ${label} en el export. ¿Cambió el export?`);
+  return m[1];
+}
+HERO_LOGO = pick(/<img src="([0-9a-f-]{36})" alt="" aria-hidden="true"/, "el logo del hero");
+HERO_PHOTO = pick(/<img src="([0-9a-f-]{36})" alt="Brigadistas de la brigada comunitaria PAAMARI en una quema/, "la foto principal");
+HEADER_LOGO = pick(/goInicio \}\}"[^>]*>\s*<img src="([0-9a-f-]{36})"/, "el logo de la cabecera");
+RUNTIME = pick(/<script src="([0-9a-f-]{36})"/, "el runtime");
 
 function decode(entry) {
   const buf = Buffer.from(entry.data, "base64");
@@ -128,8 +137,6 @@ function patchBetween(label, start, end, to) {
 }
 
 // Rutas absolutas: /inscripcion, /programa, etc. sirven el mismo index.html.
-// Antes de resolver los uuid: el logo de la FAP ya no debe quedar referenciado.
-patch("logo FAP", `<div style="display:flex;align-items:center"><img src="${FAP_LOGO}" alt="Fuerza Aérea del Perú" style="height:56px;width:auto;display:block"></div>`, "");
 
 for (const [uuid, rel] of Object.entries(urlFor)) html = html.split(uuid).join("/" + rel);
 
@@ -240,6 +247,14 @@ for (const [hash, ruta] of [["inicio", "/"], ["registro", "/inscripcion"], ["pro
   html = html.split(`href="#${hash}"`).join(`href="${ruta}"`);
 }
 
+// Fotos que el diseño nombra desde el JS ("assets/ponente-x.jpg"): el export no
+// las incluye, así que viven en public/assets/img/ y aquí se apunta a esa ruta.
+html = html.replace(/"assets\/([a-z0-9-]+)\.(jpg|png|webp)"/g, (m, name, ext) => {
+  for (const e of [ext, "webp"]) {
+    if (fs.existsSync(path.join(PUBLIC, "assets/img", `${name}.${e}`))) return `"/assets/img/${name}.${e}"`;
+  }
+  throw new Error(`falta public/assets/img/${name}.${ext} (lo usa el diseño)`);
+});
 // Carga diferida para todo lo que no está en la primera pantalla.
 const eager = [HEADER_LOGO, HERO_LOGO, HERO_PHOTO].map((u) => "/" + urlFor[u]);
 html = html.replace(/<img src="([^"]*)"/g, (m, src) => eager.includes(src) ? m : `<img loading="lazy" decoding="async" src="${src}"`);
@@ -248,8 +263,9 @@ fs.writeFileSync(path.join(OUT, "index.html"), html);
 
 // ── Íconos e imagen para redes ──────────────────────────────────────────────
 
-// Solo la marca (llama y plumas): columnas 0–295 del logo blanco, sobre el fondo oscuro del sitio.
-const mark = await sharp(decode(manifest[HERO_LOGO])).extract({ left: 0, top: 0, width: 296, height: 284 }).trim().png().toBuffer();
+// Solo la marca (llama y plumas): el ~36 % izquierdo del logo blanco, sobre el fondo oscuro del sitio.
+const heroMeta = await sharp(decode(manifest[HERO_LOGO])).metadata();
+const mark = await sharp(decode(manifest[HERO_LOGO])).extract({ left: 0, top: 0, width: Math.round(heroMeta.width * 0.36), height: heroMeta.height }).png().toBuffer().then((b) => sharp(b).trim().png().toBuffer());
 async function icon(size, pad, radius) {
   const inner = Math.round(size * (1 - 2 * pad));
   const art = await sharp(mark).resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
